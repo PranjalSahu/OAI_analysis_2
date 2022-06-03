@@ -1,12 +1,10 @@
 # All Imports
 
 import numpy as np
-
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]=""
+#os.environ["CUDA_VISIBLE_DEVICES"]=""
 
 
-import coiled
 import dask
 from dask import delayed, compute, visualize
 from dask.distributed import Client, progress, LocalCluster
@@ -38,7 +36,10 @@ def register_images_delayed():
     image_B = itk.imread(image_B, itk.D)
 
     model = pretrained_models.OAI_knees_gradICON_model()
-    model.to('cpu')
+    if torch.cuda.is_available():
+        model.cuda()
+    else:
+        model.to('cpu')
 
     # Register the images
     phi_AB, phi_BA = itk_wrapper.register_pair(model, image_A, image_B)
