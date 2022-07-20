@@ -9,7 +9,7 @@ import json
 import numpy as np
 import multiscale_spatial_image as msi
 from multiscale_spatial_image import to_multiscale
-
+import s3fs
 
 #oai_data_root = '/media/pranjal.sahu/moredata/OAI-DATASET/Package_1200013/results/18m/2.D.2'
 oai_data_root = '/data/OAIFULLDATA'
@@ -31,7 +31,8 @@ dess_df = pd.read_csv(dess_file)
 #target_patients = [9993846, 9992358, 9986207]
 target_patients = [9010060]
 
-output_prefix = Path('/data/OAI_analysis_2/ZARR')
+#output_prefix = Path('/data/OAI_analysis_2/ZARR')
+output_prefix = 's3://oaisample1/zarr_example'
 
 
 image_types = set()
@@ -43,6 +44,10 @@ data_dtypes = np.dtype([('Months', np.uint16),
                     ('CID', np.unicode_, 64),
                     ('Type', np.unicode_, 128),
                     ('Name', np.unicode_, 256)])
+
+s3_path = 's3://oaisample1/zarr_example'
+s3 = s3fs.S3FileSystem()
+#store = s3fs.S3Map(root=s3_path, s3=s3, check=False)
 
 data_rows = []
 for patient in target_patients[:3]:
@@ -75,26 +80,29 @@ for patient in target_patients[:3]:
                             patient_cid = str(patient)
                             month_id = f'Month-{time_point}'
                             patient_id = f'PatientID-{patient_cid}'
-                            output_dir = output_prefix / \
-                                patient_id / \
-                                month_id
+                            output_dir = output_prefix +'/' + patient_id  +'/' + month_id
                             
-                            if not output_dir.exists():
-                                output_dir.mkdir(parents=True)
+                            #if not output_dir.exists():
+                            #    output_dir.mkdir(parents=True)
                             if not patient_id in data_index:
                                 data_index[patient_id] = {}
                             if not month_id in data_index[patient_id]:
                                 data_index[patient_id][month_id] = {}
 
-                            output_image_dir = output_dir / 'Images' / f'SAG_3D_DESS_{dess_count}.zarr'
+                            output_image_dir = output_dir +'/'+ 'Images' +'/'+ f'SAG_3D_DESS_{dess_count}.zarr'
+                            print('Pranjal path is ')
+                            print(output_image_dir)
+                            store = s3fs.S3Map(root=output_image_dir, s3=s3, check=False)
                             image_da = itk.xarray_from_image(image)
                             
-                            name = output_image_dir.stem
-                            image_ds = image_da.to_dataset(name=name)
+                            #name = output_image_dir.stem
+                            name = 'image'
+                            image_ds = image_da.to_dataset(name='image')
                             
-                            multiscale_image = msi.to_multiscale(getattr(image_ds, f'SAG_3D_DESS_{dess_count}'), [2, 4], msi.Methods.ITK_GAUSSIAN)
+                            multiscale_image = msi.to_multiscale(image_ds.image, [2, 4], msi.Methods.ITK_GAUSSIAN)
+                            # use attrs if the same image name needs to be used
 
-                            store = zarr.DirectoryStore(output_image_dir)
+                            #store = zarr.DirectoryStore(output_image_dir)
                             chunk_size = 64
                             compressor = Blosc(cname='zstd', clevel=5, shuffle=Blosc.SHUFFLE)
                             multiscale_image.to_zarr(store, mode='w', compute=True,
