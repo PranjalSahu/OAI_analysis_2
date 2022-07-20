@@ -32,7 +32,7 @@ dess_df = pd.read_csv(dess_file)
 target_patients = [9010060]
 
 #output_prefix = Path('/data/OAI_analysis_2/ZARR')
-output_prefix = 's3://oaisample1/zarr_example'
+output_prefix = 's3://oaisample1/ZARRDATA'
 
 
 image_types = set()
@@ -88,20 +88,29 @@ for patient in target_patients[:3]:
                                 data_index[patient_id] = {}
                             if not month_id in data_index[patient_id]:
                                 data_index[patient_id][month_id] = {}
+                            
+                            image_name = f'SAG_3D_DESS_{dess_count}.zarr'
+                            image_suffix = patient_id  +'/' + month_id +'/'+ 'Images' +'/'+ image_name
+                            output_image_dir = output_prefix +'/' + image_suffix
 
-                            output_image_dir = output_dir +'/'+ 'Images' +'/'+ f'SAG_3D_DESS_{dess_count}.zarr'
                             print('Pranjal path is ')
                             print(output_image_dir)
                             store = s3fs.S3Map(root=output_image_dir, s3=s3, check=False)
                             image_da = itk.xarray_from_image(image)
+                            image_da.attrs['laterality'] = md['laterality']
                             
                             #name = output_image_dir.stem
                             name = 'image'
-                            image_ds = image_da.to_dataset(name='image')
+                            image_ds = image_da.to_dataset(name='image', promote_attrs=True)
                             
+                            #print('image_ds is ')
+                            #print(image_ds)
+
                             multiscale_image = msi.to_multiscale(image_ds.image, [2, 4], msi.Methods.ITK_GAUSSIAN)
                             # use attrs if the same image name needs to be used
-
+                            
+                            #print('multiscale_image is ')
+                            #print(multiscale_image)
                             #store = zarr.DirectoryStore(output_image_dir)
                             chunk_size = 64
                             compressor = Blosc(cname='zstd', clevel=5, shuffle=Blosc.SHUFFLE)
@@ -111,11 +120,11 @@ for patient in target_patients[:3]:
                             #                                '--raw-leaves', '--cid-version', '1', '-Q',
                             #                                str(output_image_dir)]).decode().strip()
                             cid = 'cid'
-                            data_index[patient_id][month_id][str(output_image_dir.name)] = 'cid'
+                            data_index[patient_id][month_id][str(image_name)] = 'cid'
                             data_row = np.array([(time_point,
                                                 patient_cid,
                                                 str(md['laterality']),
-                                                str(output_image_dir.relative_to(output_prefix)),
+                                                str(image_suffix),
                                                 cid,
                                                 'Image',
                                                 f'SEG_3D_DESS_{dess_count}')],
@@ -129,3 +138,23 @@ for patient in target_patients[:3]:
                             
                             data_rows.append(data_frame)
                             dess_count += 1
+
+
+
+# Test Code
+# import zarr
+# import xarray as xr
+# import numpy as np
+
+# Read as xarray
+# p1 = xr.open_zarr('s3://oaisample1/ZARRDATA/PatientID-9010060/Month-12/Images/SAG_3D_DESS_1.zarr')
+# print(p1)
+
+# # Read a zarr file and check the laterality
+# z2 = zarr.open('s3://oaisample1/ZARRDATA/PatientID-9010060/Month-12/Images/SAG_3D_DESS_1.zarr', mode='r')
+# scale0 = z2['scale0']
+# print(scale0.attrs['laterality'])
+
+# # Get the image from zarr file
+# image = z2['scale0/image']
+# image = np.array(image)
