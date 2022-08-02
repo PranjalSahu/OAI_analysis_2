@@ -29,7 +29,7 @@ dess_df = pd.read_csv(dess_file)
 
 # We can use all images in dess_df in the future
 #target_patients = [9993846, 9992358, 9986207]
-target_patients = [9010060]
+target_patients = [9010060, 9010308]
 
 #output_prefix = Path('/data/OAI_analysis_2/ZARR')
 output_prefix = 's3://oaisample1/ZARRDATA'
@@ -93,7 +93,7 @@ for patient in target_patients[:3]:
                             image_suffix = patient_id  +'/' + month_id +'/'+ 'Images' +'/'+ image_name
                             output_image_dir = output_prefix +'/' + image_suffix
 
-                            print('Pranjal path is ')
+                            #print('Pranjal path is ')
                             print(output_image_dir)
                             store = s3fs.S3Map(root=output_image_dir, s3=s3, check=False)
                             image_da = itk.xarray_from_image(image)
