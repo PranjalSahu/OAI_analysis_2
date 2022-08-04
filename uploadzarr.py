@@ -147,7 +147,7 @@ for patient in target_patients[:3]:
 # import numpy as np
 
 # Read as xarray
-# p1 = xr.open_zarr('s3://oaisample1/ZARRDATA/PatientID-9010060/Month-12/Images/SAG_3D_DESS_1.zarr')
+# p1 = xr.open_zarr('s3://oaisample1/ZARRDATA/PatientID-9010060/Month-12/Images/SAG_3D_DESS_1.zarr/scale0')
 # print(p1)
 
 # # Read a zarr file and check the laterality
@@ -158,3 +158,33 @@ for patient in target_patients[:3]:
 # # Get the image from zarr file
 # image = z2['scale0/image']
 # image = np.array(image)
+
+
+
+
+# export AWS_DEFAULT_PROFILE=oaiuser
+
+# Use ITk 5.3rc4 which has Bin filter
+import itk
+import multiscale_spatial_image as msi
+from multiscale_spatial_image import to_multiscale
+import s3fs
+import zarr
+from numcodecs import Blosc
+
+s3 = s3fs.S3FileSystem()
+image = itk.imread('/home/pranjal.sahu/Downloads/atlas_image.nii.gz')
+image.SetMetaDataDictionary(itk.MetaDataDictionary())
+image_da = itk.xarray_from_image(image)
+
+#name = output_image_dir.stem
+name = 'image'
+image_ds = image_da.to_dataset(name='image', promote_attrs=True)
+multiscale_image = msi.to_multiscale(image_ds.image, [2, 4], msi.Methods.ITK_GAUSSIAN)
+
+output_image_dir = 's3://oaisample1/ZARRDATA/atlas_image.zarr'
+store = s3fs.S3Map(root=output_image_dir, s3=s3, check=False)
+chunk_size = 64
+compressor = Blosc(cname='zstd', clevel=5, shuffle=Blosc.SHUFFLE)
+multiscale_image.to_zarr(store, mode='w', compute=True,
+            encoding={name: {'chunks': [chunk_size]*image.GetImageDimension(), 'compressor': compressor}})
