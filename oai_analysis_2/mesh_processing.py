@@ -17,7 +17,6 @@ from sklearn.cluster import KMeans
 import itk
 import vtk
 from vtk.util import numpy_support as ns
-from itkwidgets import view
 from skimage import measure
 from scipy.interpolate import griddata
 from sklearn.decomposition import PCA
